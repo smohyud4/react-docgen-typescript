@@ -870,6 +870,28 @@ describe('parser', () => {
     });
   });
 
+  it('should parse one component doc for a functional component with a named and default export', () => {
+    check('NamedAndDefaultExportFunction', {
+      NamedAndDefaultExportFunction: {
+        id: {
+          type: 'string',
+          required: false
+        }
+      }
+    });
+  });
+
+  it('should parse one component doc for an arrow functional component with a named and default export', () => {
+    check('NamedAndDefaultExportArrowFunction', {
+      NamedAndDefaultExportArrowFunction: {
+        id: {
+          type: 'string',
+          required: false
+        }
+      }
+    });
+  });
+
   it('should parse functional component defined as const with default value (imported from a separate file) assignments in immediately destructured props', () => {
     check('FunctionalComponentWithDesctructuredPropsAndImportedConstants', {
       FunctionalComponentWithDesctructuredPropsAndImportedConstants: {

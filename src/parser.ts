@@ -1503,6 +1503,19 @@ function isInterfaceOrTypeAliasDeclaration(
   );
 }
 
+// Resolves aliases (e.g. `export default multiple`) back to the symbol
+// that actually owns the declaration, so we can dedupe on that.
+function resolveSymbol(symbol: ts.Symbol, checker: ts.TypeChecker): ts.Symbol {
+  if (ts.SymbolFlags.Alias & symbol.flags) {
+    try {
+      return checker.getAliasedSymbol(symbol);
+    } catch {
+      return symbol;
+    }
+  }
+  return symbol;
+}
+
 function parseWithProgramProvider(
   filePathOrPaths: string | string[],
   compilerOptions: ts.CompilerOptions,
@@ -1537,9 +1550,21 @@ function parseWithProgramProvider(
       const exports = checker.getExportsOfModule(moduleSymbol);
       const componentDocs: ComponentDoc[] = [];
       const exportsAndMembers: ts.Symbol[] = [];
+      const seenValueDeclarations = new Set<ts.Declaration>();
 
       // Examine each export to determine if it's on object which may contain components
       exports.forEach(exp => {
+        const resolved = resolveSymbol(exp, checker);
+        const valueDeclaration =
+          resolved.valueDeclaration ?? exp.valueDeclaration;
+
+        if (valueDeclaration) {
+          if (seenValueDeclarations.has(valueDeclaration)) {
+            return;
+          }
+          seenValueDeclarations.add(valueDeclaration);
+        }
+
         // Push symbol for extraction to maintain existing behavior
         exportsAndMembers.push(exp);
         // Determine if the export symbol is an object
@@ -1549,6 +1574,17 @@ function parseWithProgramProvider(
         const typeSymbol = parser.getTypeSymbol(exp);
         if (typeSymbol?.members) {
           typeSymbol.members.forEach(member => {
+            const resolved = resolveSymbol(member, checker);
+            const valueDeclaration =
+              resolved.valueDeclaration ?? member.valueDeclaration;
+
+            if (valueDeclaration) {
+              if (seenValueDeclarations.has(valueDeclaration)) {
+                return;
+              }
+              seenValueDeclarations.add(valueDeclaration);
+            }
+
             exportsAndMembers.push(member);
           });
         }
@@ -1608,25 +1644,6 @@ function parseWithProgramProvider(
         });
       });
 
-      // Remove any duplicates (for HOC where the names are the same)
-      const componentDocsNoDuplicates = componentDocs.reduce(
-        (prevVal, comp) => {
-          const duplicate = prevVal.find(compDoc => {
-            return compDoc!.displayName === comp!.displayName;
-          });
-          if (duplicate) return prevVal;
-          return [...prevVal, comp];
-        },
-        [] as ComponentDoc[]
-      );
-
-      const filteredComponentDocs = componentDocsNoDuplicates.filter(
-        (comp, index, comps) =>
-          comps
-            .slice(index + 1)
-            .every(innerComp => innerComp!.displayName !== comp!.displayName)
-      );
-
-      return [...docs, ...filteredComponentDocs];
+      return [...docs, ...componentDocs];
     }, []);
 }
