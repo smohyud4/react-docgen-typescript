@@ -892,6 +892,28 @@ describe('parser', () => {
     });
   });
 
+  it('should parse one component doc for a component with a named and default object member export', () => {
+    check('NamedAndDefaultMemberExports', {
+      NamedAndDefaultMemberExports: {
+        id: {
+          type: 'string',
+          required: false
+        }
+      }
+    });
+  });
+
+  it('should parse one component doc for a component with a named and default shorthand object member export', () => {
+    check('NamedAndDefaultShorthandMemberExports', {
+      NamedAndDefaultShorthandMemberExports: {
+        id: {
+          type: 'string',
+          required: false
+        }
+      }
+    });
+  });
+
   it('should parse functional component defined as const with default value (imported from a separate file) assignments in immediately destructured props', () => {
     check('FunctionalComponentWithDesctructuredPropsAndImportedConstants', {
       FunctionalComponentWithDesctructuredPropsAndImportedConstants: {

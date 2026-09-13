@@ -308,6 +308,54 @@ export class Parser {
     }
   }
 
+  /**
+   * Resolves aliases from export symbol
+   * to the component declaration, so we can dedupe on that.
+   * @param symbol
+   */
+  public resolveExportSymbol(symbol: ts.Symbol): ts.Symbol {
+    let current = symbol;
+
+    // Follow alias symbols (e.g. `export default Foo`)
+    if (ts.SymbolFlags.Alias & current.flags) {
+      try {
+        current = this.checker.getAliasedSymbol(current);
+      } catch {
+        // leave current as-is
+      }
+    }
+
+    const declaration = current.valueDeclaration;
+
+    // Follow shorthand property assignments, e.g. members of
+    // `export default { Foo, Bar }`
+    if (declaration && ts.isShorthandPropertyAssignment(declaration)) {
+      const referenced = this.checker.getShorthandAssignmentValueSymbol(
+        declaration
+      );
+      if (referenced) {
+        current = referenced;
+      }
+    }
+
+    // Follow property assignments with an identifier initializer, e.g.
+    // members of `export default { Foo: Foo }`
+    if (
+      declaration &&
+      ts.isPropertyAssignment(declaration) &&
+      ts.isIdentifier(declaration.initializer)
+    ) {
+      const referenced = this.checker.getSymbolAtLocation(
+        declaration.initializer
+      );
+      if (referenced) {
+        current = referenced;
+      }
+    }
+
+    return current;
+  }
+
   private getComponentFromExpression(exp: ts.Symbol) {
     let declaration = exp.valueDeclaration || exp.declarations![0];
     // Lookup component if it's a property assignment
@@ -1503,19 +1551,6 @@ function isInterfaceOrTypeAliasDeclaration(
   );
 }
 
-// Resolves aliases (e.g. `export default multiple`) back to the symbol
-// that actually owns the declaration, so we can dedupe on that.
-function resolveSymbol(symbol: ts.Symbol, checker: ts.TypeChecker): ts.Symbol {
-  if (ts.SymbolFlags.Alias & symbol.flags) {
-    try {
-      return checker.getAliasedSymbol(symbol);
-    } catch {
-      return symbol;
-    }
-  }
-  return symbol;
-}
-
 function parseWithProgramProvider(
   filePathOrPaths: string | string[],
   compilerOptions: ts.CompilerOptions,
@@ -1554,7 +1589,7 @@ function parseWithProgramProvider(
 
       // Examine each export to determine if it's on object which may contain components
       exports.forEach(exp => {
-        const resolved = resolveSymbol(exp, checker);
+        const resolved = parser.resolveExportSymbol(exp);
         const valueDeclaration =
           resolved.valueDeclaration ?? exp.valueDeclaration;
 
@@ -1574,7 +1609,7 @@ function parseWithProgramProvider(
         const typeSymbol = parser.getTypeSymbol(exp);
         if (typeSymbol?.members) {
           typeSymbol.members.forEach(member => {
-            const resolved = resolveSymbol(member, checker);
+            const resolved = parser.resolveExportSymbol(member);
             const valueDeclaration =
               resolved.valueDeclaration ?? member.valueDeclaration;
 
