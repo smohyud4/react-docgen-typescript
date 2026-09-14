@@ -308,6 +308,37 @@ export class Parser {
     }
   }
 
+  private resolveHocArgument(
+    exp: ts.Symbol,
+    declaration: ts.Declaration
+  ): ts.Symbol {
+    const type = this.checker.getTypeOfSymbolAtLocation(exp, declaration);
+    const typeSymbol = type.symbol || type.aliasSymbol;
+
+    if (!typeSymbol) {
+      return exp;
+    }
+
+    const symbolName = typeSymbol.getName();
+    if (
+      (symbolName === 'MemoExoticComponent' ||
+        symbolName === 'ForwardRefExoticComponent') &&
+      exp.valueDeclaration &&
+      ts.isExportAssignment(exp.valueDeclaration) &&
+      ts.isCallExpression(exp.valueDeclaration.expression)
+    ) {
+      const component = this.checker.getSymbolAtLocation(
+        exp.valueDeclaration.expression.arguments[0]
+      );
+
+      if (component) {
+        exp = component;
+      }
+    }
+
+    return exp;
+  }
+
   /**
    * Resolves aliases from export symbol
    * to the component declaration, so we can dedupe on that.
@@ -353,7 +384,10 @@ export class Parser {
       }
     }
 
-    return current;
+    return this.resolveHocArgument(
+      current,
+      current.valueDeclaration || current.declarations![0]
+    );
   }
 
   private getComponentFromExpression(exp: ts.Symbol) {
@@ -371,31 +405,7 @@ export class Parser {
       }
     }
 
-    const type = this.checker.getTypeOfSymbolAtLocation(exp, declaration);
-    const typeSymbol = type.symbol || type.aliasSymbol;
-
-    if (!typeSymbol) {
-      return exp;
-    }
-
-    const symbolName = typeSymbol.getName();
-    if (
-      (symbolName === 'MemoExoticComponent' ||
-        symbolName === 'ForwardRefExoticComponent') &&
-      exp.valueDeclaration &&
-      ts.isExportAssignment(exp.valueDeclaration) &&
-      ts.isCallExpression(exp.valueDeclaration.expression)
-    ) {
-      const component = this.checker.getSymbolAtLocation(
-        exp.valueDeclaration.expression.arguments[0]
-      );
-
-      if (component) {
-        exp = component;
-      }
-    }
-
-    return exp;
+    return this.resolveHocArgument(exp, declaration);
   }
 
   public getComponentInfo(
