@@ -924,7 +924,7 @@ describe('parser', () => {
     });
   });
 
-  it('should parse one component doc for a component with a named and memo default export', () => {
+  it('should parse one component doc for a component with a named and forwardRef default export', () => {
     check('NamedAndDefaultForwardRef', {
       NamedAndDefaultForwardRef: {
         id: {
