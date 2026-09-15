@@ -391,6 +391,10 @@ export class Parser {
   }
 
   private getComponentFromExpression(exp: ts.Symbol) {
+    if (!this.shouldIncludeExpression) {
+      return exp;
+    }
+
     let declaration = exp.valueDeclaration || exp.declarations![0];
     // Lookup component if it's a property assignment
     if (declaration && ts.isPropertyAssignment(declaration)) {
