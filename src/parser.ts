@@ -1611,7 +1611,9 @@ function parseWithProgramProvider(
         }
 
         // Push symbol for extraction to maintain existing behavior
-        exportsAndMembers.push(exp);
+        exportsAndMembers.push(
+          parserOpts.shouldIncludeExpression ? exp : resolved
+        );
         // Determine if the export symbol is an object
         if (!parser.isPlainObjectType(exp)) {
           return;
@@ -1630,7 +1632,9 @@ function parseWithProgramProvider(
               seenValueDeclarations.add(valueDeclaration);
             }
 
-            exportsAndMembers.push(member);
+            exportsAndMembers.push(
+              parserOpts.shouldIncludeExpression ? member : resolved
+            );
           });
         }
       });
